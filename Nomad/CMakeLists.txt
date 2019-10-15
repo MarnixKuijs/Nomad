@@ -1,24 +1,23 @@
 cmake_minimum_required(VERSION 3.10.0)
 project(Nomad VERSION 1.0.0)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 set(SRC_FILES
-    ./Source/main.cpp
     ./Source/GPU/GPUContext.cpp
+	./Source/Graphics/Swapchain.cpp
+	./Source/Graphics/Shader.cpp
 )
 
-link_directories(
-	$ENV{VULKAN_SDK}/Lib/
-)
-
-add_executable(Nomad ${SRC_FILES})
+add_library(Nomad ${SRC_FILES})
 
 target_include_directories(Nomad
     PUBLIC ./Include/
+	PUBLIC ../External/glfw/include/
 	PUBLIC $ENV{VULKAN_SDK}/Include/
+)
+
+target_link_directories(Nomad
+	PUBLIC $ENV{VULKAN_SDK}/Lib/
+
 )
 
 target_link_libraries(Nomad 

@@ -9,7 +9,7 @@ namespace cof
 	struct PhysicalDevice
 	{
 		friend struct GPUContext;
-		friend PhysicalDevice RequestPhysicalDevice(VkInstance instance, uint64_t desiredFeaturesBitMask);
+		friend VkPhysicalDevice RequestPhysicalDevice(VkInstance instance, uint64_t desiredFeaturesBitMask);
 
 		~PhysicalDevice()
 		{

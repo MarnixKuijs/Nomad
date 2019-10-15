@@ -8,8 +8,13 @@
 
 namespace cof
 {
+
 	struct GPUContext
 	{
+	private:
+		struct QueueFamilyIndices;
+
+	public:
 		//TODO change desiredExtensions to span
 		GPUContext(	const VkInstance instance, 
 					const uint64_t desiredFeaturesBitMask, 
@@ -20,11 +25,15 @@ namespace cof
 		GPUContext& operator=(const GPUContext& other) = delete;
 		GPUContext(GPUContext&& other) = delete;
 		GPUContext& operator=(GPUContext&& other) = delete;
+
+		const VkDevice LogicalDevice() const noexcept { return logicalDevice; }
+		const VkPhysicalDevice PhysicalDevice() const noexcept { return physicalDevice; }
+		const QueueFamilyIndices& QueueFamilyIndices() const noexcept { return queueFamilyIndices; }
 	
 	private:
 
 		VkDevice logicalDevice;
-		cof::PhysicalDevice physicalDevice;
+		VkPhysicalDevice physicalDevice;
 
 		struct QueueFamilyIndices
 		{

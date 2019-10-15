@@ -12,7 +12,7 @@
 
 namespace cof
 {
-	PhysicalDevice RequestPhysicalDevice(VkInstance instance, ::uint64_t desiredFeaturesBitMask);
+	VkPhysicalDevice RequestPhysicalDevice(const VkInstance instance, const uint64_t desiredFeaturesBitMask);
 	const uint32_t GetGraphicsQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies);
 	const uint32_t GetComputeQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies);
 	const uint32_t GetTransferQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies);
@@ -27,11 +27,11 @@ namespace cof
 
 		uint32_t queueFamiliesCount = 0;
 
-		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.handle, &queueFamiliesCount, nullptr);
+		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, nullptr);
 		assert(queueFamiliesCount != 0);
 
 		std::vector<VkQueueFamilyProperties> queueFamilies{ queueFamiliesCount };
-		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.handle, &queueFamiliesCount, queueFamilies.data());
+		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, queueFamilies.data());
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
 		constexpr float defaultQueuePriority{ 1.0f };
@@ -98,17 +98,27 @@ namespace cof
 
 		uint32_t extensionsCount = 0;
 		VkResult result;
-		result = vkEnumerateDeviceExtensionProperties(physicalDevice.handle, nullptr, &extensionsCount, nullptr);
+		result = vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionsCount, nullptr);
 		assert(result == VK_SUCCESS && extensionsCount != 0);
 
 		availableDeviceExtensions.resize(extensionsCount);
-		result = vkEnumerateDeviceExtensionProperties(physicalDevice.handle, nullptr, &extensionsCount, availableDeviceExtensions.data());
+		result = vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionsCount, availableDeviceExtensions.data());
 		assert(result == VK_SUCCESS);
 
 		for (auto& desiredExtension : desiredExtensions)
 		{
 			assert(IsExtensionSupported(availableDeviceExtensions, desiredExtension));
 		}
+		VkPhysicalDeviceFeatures physicalDeviceFeatures;
+		vkGetPhysicalDeviceFeatures(physicalDevice, &physicalDeviceFeatures);
+		auto deviceFeaturesArray = cof::ArrayCast<VkBool32>(physicalDeviceFeatures);
+		for (size_t currentBit{}; currentBit < deviceFeaturesArray.size(); ++currentBit)
+		{
+			constexpr static uint64_t maskChecker{ 1 };
+			deviceFeaturesArray[currentBit] = (desiredFeaturesBitMask >> currentBit) & maskChecker;
+		}
+
+		VkPhysicalDeviceFeatures enabledDeviceFeatures = cof::ReverseArrayCast<VkPhysicalDeviceFeatures>(deviceFeaturesArray);
 
 		VkDeviceCreateInfo deviceCreateInfo
 		{
@@ -121,18 +131,19 @@ namespace cof
 			nullptr,														
 			static_cast<uint32_t>(desiredExtensions.size()),		
 			desiredExtensions.data(),
-			&physicalDevice.deviceFeatures
+			&enabledDeviceFeatures
 		};
 
-		result = vkCreateDevice(physicalDevice.handle, &deviceCreateInfo, nullptr, &logicalDevice);
+		result = vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &logicalDevice);
 		assert(result == VK_SUCCESS || logicalDevice != VK_NULL_HANDLE);
 	}
 	
 	GPUContext::~GPUContext()
 	{
+		vkDestroyDevice(logicalDevice, nullptr);
 	}
 
-	PhysicalDevice RequestPhysicalDevice(VkInstance instance, uint64_t desiredFeaturesBitMask)
+	VkPhysicalDevice RequestPhysicalDevice(const VkInstance instance, const uint64_t desiredFeaturesBitMask)
 	{
 		uint32_t deviceCount = 0;
 		VkResult result = vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -173,25 +184,13 @@ namespace cof
 			}
 
 			physicalDeviceCandidates[deviceIndex] = &physicalDeviceCandidate;
-			physicalDeviceCandidatesFeatures[deviceIndex] = &physicalDeviceCandidateFeatures;
-			physicalDeviceCandidatesProperties[deviceIndex] = &physicalDeviceCandidateProperties;
 		}
 
 		assert(physicalDeviceCandidates.size() != 0);
 
 		VkPhysicalDevice& selectedDevice = *physicalDeviceCandidates[0];
-		VkPhysicalDeviceProperties& selectedDeviceProperties = *physicalDeviceCandidatesProperties[0];
 
-		auto deviceFeaturesArray = cof::ArrayCast<VkBool32>(*physicalDeviceCandidatesFeatures[0]);
-		for (size_t currentBit{}; currentBit < deviceFeaturesArray.size(); ++currentBit)
-		{
-			constexpr static uint64_t maskChecker{ 1 };
-			deviceFeaturesArray[currentBit] = (desiredFeaturesBitMask >> currentBit) & maskChecker;
-		}
-
-		VkPhysicalDeviceFeatures selectedDeviceFeatures = cof::ReverseArrayCast<VkPhysicalDeviceFeatures>(deviceFeaturesArray);
-
-		return cof::PhysicalDevice{ std::move(selectedDevice), std::move(selectedDeviceFeatures), std::move(selectedDeviceProperties) };
+		return selectedDevice;
 	}
 
 	const uint32_t GetGraphicsQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies)
