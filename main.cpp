@@ -3,6 +3,7 @@
 #include "Graphics/CommandPool.h"
 #include "Graphics/Shader.h"
 #include "Utils/VulkanUtils.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <vulkan/vulkan.h>
 #undef WIN32_LEAN_AND_MEAN
@@ -16,18 +17,7 @@
 #include <cstdlib>
 #include <cstdint>
 
-#if defined(_DEBUG)
-constexpr static std::array layers
-{
-	"VK_LAYER_LUNARG_standard_validation"
-};
-#else
-constexpr static std::array<const char*, 0> layers{};
-#endif
-
-static std::vector<const char*> desiredInstanceExtensions{};
-
-static VkApplicationInfo appInfo
+constexpr static VkApplicationInfo appInfo
 {
 	VK_STRUCTURE_TYPE_APPLICATION_INFO,
 	nullptr,
@@ -38,8 +28,20 @@ static VkApplicationInfo appInfo
 	VK_API_VERSION_1_1
 };
 
+#if defined(_DEBUG)
+constexpr static std::array layers
+{
+	"VK_LAYER_LUNARG_standard_validation"
+};
+#else
+constexpr static std::array<const char*, 0> layers{};
+#endif
+
+
 constexpr static uint64_t desiredFeaturesBitMask{ 1 | 1 << 1 | 1 << 2 | 1 << 3 };
 constexpr static VkQueueFlags queueFlags{ VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT };
+
+static std::vector<const char*> desiredInstanceExtensions{};
 static std::vector<const char*> desiredDeviceExtensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 int main()
@@ -99,24 +101,25 @@ int main()
 	assert(errorCode == VK_SUCCESS);
 
 	cof::GPUContext gpuContext{ instance, desiredFeaturesBitMask, queueFlags, desiredDeviceExtensions };
+	
+	const auto& queueFamilyIndices = cof::GPUContext::QueueFamilyIndices();
+	const VkPhysicalDevice physicalDevice = cof::GPUContext::PhysicalDevice();
 
-	const auto& queueFamilyIndices = gpuContext.QueueFamilyIndices();
-	const auto physicalDevice = gpuContext.PhysicalDevice();
 	uint32_t presentQueueFamilyIndex{ std::numeric_limits<uint32_t>::max() };
 	VkBool32 presentationSupported = VK_FALSE;
 
 	if (errorCode = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndices.graphics, surface, &presentationSupported); 
-		VK_SUCCESS == errorCode && VK_TRUE == presentationSupported)
+		errorCode == VK_SUCCESS   && presentationSupported == VK_TRUE)
 	{
 		presentQueueFamilyIndex = queueFamilyIndices.graphics;
 	}
 	else if (errorCode = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndices.compute, surface, &presentationSupported);
-		VK_SUCCESS == errorCode && VK_TRUE == presentationSupported)
+		errorCode == VK_SUCCESS && presentationSupported == VK_TRUE)
 	{
 		presentQueueFamilyIndex = queueFamilyIndices.compute;
 	}
 	else if (errorCode = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndices.transfer, surface, &presentationSupported);
-		VK_SUCCESS == errorCode && VK_TRUE == presentationSupported)
+		errorCode == VK_SUCCESS && presentationSupported == VK_TRUE)
 	{
 		presentQueueFamilyIndex = queueFamilyIndices.transfer;
 	}
@@ -128,7 +131,6 @@ int main()
 
 	cof::Swapchain swapchain
 	{
-		gpuContext,
 		surface,
 		{ static_cast<uint32_t>(windowWidth), static_cast<uint32_t>(windowHeight) },
 		VK_PRESENT_MODE_MAILBOX_KHR,
@@ -142,21 +144,22 @@ int main()
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
 	};
 	
+	const VkDevice logicalDevice = cof::GPUContext::LogicalDevice();
 	VkSemaphore imageAvailableSemaphore, renderingFinishedSemaphore;
-	errorCode = vkCreateSemaphore(gpuContext.LogicalDevice(), &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore);
+	errorCode = vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore);
 	assert(errorCode == VK_SUCCESS);
-	errorCode = vkCreateSemaphore(gpuContext.LogicalDevice(), &semaphoreCreateInfo, nullptr, &renderingFinishedSemaphore);
+	errorCode = vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr, &renderingFinishedSemaphore);
 	assert(errorCode == VK_SUCCESS);
 
-	cof::Shader triangleVertSahder = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.vert.spv)", gpuContext.LogicalDevice());
-	cof::Shader triangleFragShader = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.frag.spv)", gpuContext.LogicalDevice());
+	cof::Shader triangleVertSahder = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.vert.spv)");
+	cof::Shader triangleFragShader = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.frag.spv)");
 
-	thread_local cof::CommandPool<VK_QUEUE_GRAPHICS_BIT> graphicsCommandPool{ gpuContext };
+	cof::CommandPool<VK_QUEUE_GRAPHICS_BIT> graphicsCommandPool{};
 
 	[[maybe_unused]] uint32_t imageIndex = swapchain.AcquireNextImage(std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE);
 
-	vkDestroySemaphore(gpuContext.LogicalDevice(), imageAvailableSemaphore, nullptr);
-	vkDestroySemaphore(gpuContext.LogicalDevice(), renderingFinishedSemaphore, nullptr);
+	vkDestroySemaphore(logicalDevice, imageAvailableSemaphore, nullptr);
+	vkDestroySemaphore(logicalDevice, renderingFinishedSemaphore, nullptr);
 
 	std::atexit([] 
 		{

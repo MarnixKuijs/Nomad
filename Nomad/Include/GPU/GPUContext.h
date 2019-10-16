@@ -8,7 +8,6 @@
 
 namespace cof
 {
-
 	struct GPUContext
 	{
 	private:
@@ -26,20 +25,22 @@ namespace cof
 		GPUContext(GPUContext&& other) = delete;
 		GPUContext& operator=(GPUContext&& other) = delete;
 
-		const VkDevice LogicalDevice() const noexcept { return logicalDevice; }
-		const VkPhysicalDevice PhysicalDevice() const noexcept { return physicalDevice; }
-		const QueueFamilyIndices& QueueFamilyIndices() const noexcept { return queueFamilyIndices; }
+		static const VkDevice LogicalDevice() noexcept { return logicalDevice; }
+		static const VkPhysicalDevice PhysicalDevice() noexcept { return physicalDevice; }
+		static const QueueFamilyIndices& QueueFamilyIndices() noexcept { return queueFamilyIndices; }
 	
 	private:
 
-		VkDevice logicalDevice;
-		VkPhysicalDevice physicalDevice;
+		static VkDevice logicalDevice;
+		static VkPhysicalDevice physicalDevice;
 
-		struct QueueFamilyIndices
+		static struct QueueFamilyIndices
 		{
 			uint32_t graphics{ std::numeric_limits<uint32_t>::max() };
 			uint32_t compute{ std::numeric_limits<uint32_t>::max() };
 			uint32_t transfer{ std::numeric_limits<uint32_t>::max() };
 		} queueFamilyIndices;
 	};
+
+
 }

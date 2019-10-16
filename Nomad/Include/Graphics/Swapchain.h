@@ -9,7 +9,6 @@ namespace cof
 	public:
 		Swapchain
 		(	
-			const cof::GPUContext& gpuContext, 
 			const VkSurfaceKHR surface, 
 			const VkExtent2D desiredImageSize,
 			const VkPresentModeKHR desiredPresentMode,	
@@ -36,6 +35,5 @@ namespace cof
 
 	private:
 		VkSwapchainKHR handle;
-		const VkDevice parent;
 	};
 }

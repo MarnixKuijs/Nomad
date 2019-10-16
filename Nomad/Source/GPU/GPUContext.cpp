@@ -17,14 +17,19 @@ namespace cof
 	const uint32_t GetComputeQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies);
 	const uint32_t GetTransferQueueFamilyIndex(const std::vector<VkQueueFamilyProperties>& queueFamilies);
 
+	VkDevice GPUContext::logicalDevice;
+	VkPhysicalDevice GPUContext::physicalDevice;
+
+	struct GPUContext::QueueFamilyIndices GPUContext::queueFamilyIndices;
+
 	
 	GPUContext::GPUContext(	const VkInstance instance, 
 							const uint64_t desiredFeaturesBitMask, 
 							const VkQueueFlags desiredQueueFamilies, 
 							const std::vector<const char*>& desiredExtensions)
-		: physicalDevice{ RequestPhysicalDevice(instance, desiredFeaturesBitMask) }
-	{
 
+	{
+		physicalDevice = RequestPhysicalDevice(instance, desiredFeaturesBitMask);
 		uint32_t queueFamiliesCount = 0;
 
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, nullptr);

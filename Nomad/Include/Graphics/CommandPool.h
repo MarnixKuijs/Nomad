@@ -11,62 +11,59 @@ namespace cof
 	template<VkQueueFlagBits QueueType>
 	struct CommandPool
 	{
-		CommandPool(const cof::GPUContext& device, VkCommandPoolCreateFlags flags = 0);
+		CommandPool(VkCommandPoolCreateFlags flags = 0);
 		~CommandPool();
 		const VkCommandPool Handle() const noexcept { return handle; }
+		
 		constexpr static VkQueueFlagBits type{ QueueType };
 
 	private:
 		VkCommandPool handle;
-		const VkDevice parent;
 	};
 
 	template<>
-	inline CommandPool<VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT>::CommandPool(const cof::GPUContext& gpuContext, VkCommandPoolCreateFlags flags)
-		: parent(gpuContext.LogicalDevice())
+	inline CommandPool<VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT>::CommandPool(VkCommandPoolCreateFlags flags)
 	{
 		VkCommandPoolCreateInfo poolInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 			.flags = flags,
-			.queueFamilyIndex = gpuContext.QueueFamilyIndices().graphics
+			.queueFamilyIndex = GPUContext::QueueFamilyIndices().graphics
 		};
 
-		vkCreateCommandPool(gpuContext.LogicalDevice(), &poolInfo, nullptr, &handle);
+		vkCreateCommandPool(GPUContext::LogicalDevice(), &poolInfo, nullptr, &handle);
 	}
 
 	template<>
-	inline CommandPool<VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT>::CommandPool(const cof::GPUContext& gpuContext, VkCommandPoolCreateFlags flags)
-		: parent(gpuContext.LogicalDevice())
+	inline CommandPool<VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT>::CommandPool(VkCommandPoolCreateFlags flags)
 	{
 		VkCommandPoolCreateInfo poolInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 			.flags = flags,
-			.queueFamilyIndex = gpuContext.QueueFamilyIndices().compute
+			.queueFamilyIndex = GPUContext::QueueFamilyIndices().compute
 		};
 
-		vkCreateCommandPool(gpuContext.LogicalDevice(), &poolInfo, nullptr, &handle);
+		vkCreateCommandPool(GPUContext::LogicalDevice(), &poolInfo, nullptr, &handle);
 	}
 
 	template<>
-	inline CommandPool<VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT>::CommandPool(const cof::GPUContext& gpuContext, VkCommandPoolCreateFlags flags)
-		: parent(gpuContext.LogicalDevice())
+	inline CommandPool<VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT>::CommandPool(VkCommandPoolCreateFlags flags)
 	{
 		VkCommandPoolCreateInfo poolInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 			.flags = flags,
-			.queueFamilyIndex = gpuContext.QueueFamilyIndices().transfer
+			.queueFamilyIndex = GPUContext::QueueFamilyIndices().transfer
 		};
 
-		vkCreateCommandPool(gpuContext.LogicalDevice(), &poolInfo, nullptr, &handle);
+		vkCreateCommandPool(GPUContext::LogicalDevice(), &poolInfo, nullptr, &handle);
 	}
 
 	template<VkQueueFlagBits QueueType>
 	inline CommandPool<QueueType>::~CommandPool()
 	{
-		vkDestroyCommandPool(parent, handle, nullptr);
+		vkDestroyCommandPool(GPUContext::LogicalDevice(), handle, nullptr);
 		handle = VK_NULL_HANDLE;
 	}
 

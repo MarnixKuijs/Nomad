@@ -8,22 +8,22 @@
 namespace cof
 {
 	Swapchain::Swapchain(
-		const cof::GPUContext& gpuContext,
 		const VkSurfaceKHR surface,
 		const VkExtent2D desiredImageSize,
 		const VkPresentModeKHR desiredPresentMode,
 		const VkImageUsageFlags dsiredUsages,
 		const VkSurfaceTransformFlagBitsKHR desiredTransform,
 		const VkSurfaceFormatKHR desiredSurfaceFormat)
-		: parent { gpuContext.LogicalDevice() }
 	{
 		VkResult errorCode{ VK_RESULT_MAX_ENUM };
 		uint32_t presentModesCount{0};
-		errorCode = vkGetPhysicalDeviceSurfacePresentModesKHR(gpuContext.PhysicalDevice(), surface, &presentModesCount, nullptr);
+
+		VkPhysicalDevice physicalDevice = cof::GPUContext::PhysicalDevice();
+		errorCode = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, nullptr);
 		assert(errorCode == VK_SUCCESS || presentModesCount != 0 );
 
 		std::vector<VkPresentModeKHR> presentModes{ presentModesCount };
-		errorCode = vkGetPhysicalDeviceSurfacePresentModesKHR(gpuContext.PhysicalDevice(), surface, &presentModesCount, presentModes.data());
+		errorCode = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, presentModes.data());
 		assert(errorCode == VK_SUCCESS);
 
 		VkPresentModeKHR presentMode{ VK_PRESENT_MODE_FIFO_KHR };
@@ -40,11 +40,11 @@ namespace cof
 		}
 
 		uint32_t formatsCount{0};
-		errorCode = vkGetPhysicalDeviceSurfaceFormatsKHR(gpuContext.PhysicalDevice(), surface, &formatsCount, nullptr);
+		errorCode = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, nullptr);
 		assert(errorCode == VK_SUCCESS && formatsCount != 0);
 
 		std::vector<VkSurfaceFormatKHR> surfaceFormats{ formatsCount };
-		errorCode = vkGetPhysicalDeviceSurfaceFormatsKHR(gpuContext.PhysicalDevice(), surface, &formatsCount, surfaceFormats.data());
+		errorCode = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, surfaceFormats.data());
 		assert(errorCode == VK_SUCCESS);
 
 		VkFormat imageFormat{ surfaceFormats[0].format };
@@ -71,7 +71,7 @@ namespace cof
 		}
 
 		VkSurfaceCapabilitiesKHR surfaceCapabilities;
-		VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpuContext.PhysicalDevice(), surface, &surfaceCapabilities);
+		VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
 		assert(VK_SUCCESS == result);
 
 		VkExtent2D imageExtent{ surfaceCapabilities.currentExtent };
@@ -120,20 +120,20 @@ namespace cof
 			VK_NULL_HANDLE //TODO recreation of swapchain                                
 		};
 
-		errorCode = vkCreateSwapchainKHR(gpuContext.LogicalDevice(), &swapchainCreateInfo, nullptr, &handle);
+		errorCode = vkCreateSwapchainKHR(cof::GPUContext::LogicalDevice(), &swapchainCreateInfo, nullptr, &handle);
 		assert(errorCode == VK_SUCCESS);
 
 	}
 
 	Swapchain::~Swapchain()
 	{
-		vkDestroySwapchainKHR(parent, handle, nullptr);
+		vkDestroySwapchainKHR(cof::GPUContext::LogicalDevice(), handle, nullptr);
 	}
 
 	const uint32_t Swapchain::AcquireNextImage(uint64_t timeout, VkSemaphore semaphore, VkFence fence)
 	{
 		uint32_t imageIndex;
-		VkResult spawchainStatus = vkAcquireNextImageKHR(parent, handle, timeout, semaphore, fence, &imageIndex);
+		VkResult spawchainStatus = vkAcquireNextImageKHR(cof::GPUContext::LogicalDevice(), handle, timeout, semaphore, fence, &imageIndex);
 		switch (spawchainStatus) //TODO handle different cases
 		{
 		case VK_SUCCESS:
