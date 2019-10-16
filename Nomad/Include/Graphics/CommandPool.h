@@ -12,7 +12,7 @@ namespace cof
 	struct CommandPool
 	{
 		CommandPool(VkCommandPoolCreateFlags flags = 0);
-		~CommandPool();
+		~CommandPool() = default;
 		const VkCommandPool Handle() const noexcept { return handle; }
 		
 		constexpr static VkQueueFlagBits type{ QueueType };
@@ -58,13 +58,6 @@ namespace cof
 		};
 
 		vkCreateCommandPool(GPUContext::LogicalDevice(), &poolInfo, nullptr, &handle);
-	}
-
-	template<VkQueueFlagBits QueueType>
-	inline CommandPool<QueueType>::~CommandPool()
-	{
-		vkDestroyCommandPool(GPUContext::LogicalDevice(), handle, nullptr);
-		handle = VK_NULL_HANDLE;
 	}
 
 }

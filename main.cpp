@@ -102,8 +102,9 @@ int main()
 
 	cof::GPUContext gpuContext{ instance, desiredFeaturesBitMask, queueFlags, desiredDeviceExtensions };
 	
-	const auto& queueFamilyIndices = cof::GPUContext::QueueFamilyIndices();
-	const VkPhysicalDevice physicalDevice = cof::GPUContext::PhysicalDevice();
+	const VkDevice logicalDevice = gpuContext.LogicalDevice();
+	const VkPhysicalDevice physicalDevice = gpuContext.PhysicalDevice();
+	const auto& queueFamilyIndices = gpuContext.QueueFamilyIndices();
 
 	uint32_t presentQueueFamilyIndex{ std::numeric_limits<uint32_t>::max() };
 	VkBool32 presentationSupported = VK_FALSE;
@@ -131,6 +132,7 @@ int main()
 
 	cof::Swapchain swapchain
 	{
+		gpuContext,
 		surface,
 		{ static_cast<uint32_t>(windowWidth), static_cast<uint32_t>(windowHeight) },
 		VK_PRESENT_MODE_MAILBOX_KHR,
@@ -144,28 +146,27 @@ int main()
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
 	};
 	
-	const VkDevice logicalDevice = cof::GPUContext::LogicalDevice();
 	VkSemaphore imageAvailableSemaphore, renderingFinishedSemaphore;
 	errorCode = vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore);
 	assert(errorCode == VK_SUCCESS);
 	errorCode = vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, nullptr, &renderingFinishedSemaphore);
 	assert(errorCode == VK_SUCCESS);
 
-	cof::Shader triangleVertSahder = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.vert.spv)");
-	cof::Shader triangleFragShader = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.frag.spv)");
+	[[maybe_unused]] uint32_t imageIndex = swapchain.AcquireNextImage(logicalDevice, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE);
+
+	cof::Shader triangleVertSahder = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.vert.spv)", logicalDevice);
+	cof::Shader triangleFragShader = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.frag.spv)", logicalDevice);
 
 	cof::CommandPool<VK_QUEUE_GRAPHICS_BIT> graphicsCommandPool{};
 
-	[[maybe_unused]] uint32_t imageIndex = swapchain.AcquireNextImage(std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE);
-
 	vkDestroySemaphore(logicalDevice, imageAvailableSemaphore, nullptr);
 	vkDestroySemaphore(logicalDevice, renderingFinishedSemaphore, nullptr);
-
-	std::atexit([] 
-		{
-			vkDestroySurfaceKHR(instance, surface, nullptr);
-			vkDestroyInstance(instance, nullptr); 
-		});
+	vkDestroyShaderModule(logicalDevice, triangleVertSahder.Handle(), nullptr);
+	vkDestroyShaderModule(logicalDevice, triangleFragShader.Handle(), nullptr);
+	vkDestroySwapchainKHR(logicalDevice, swapchain.Handle(), nullptr);
+	vkDestroyDevice(logicalDevice, nullptr);
+	vkDestroySurfaceKHR(instance, surface, nullptr);
+	vkDestroyInstance(instance, nullptr); 
 
 	return 0;
 }

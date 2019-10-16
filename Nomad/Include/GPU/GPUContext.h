@@ -19,22 +19,22 @@ namespace cof
 					const uint64_t desiredFeaturesBitMask, 
 					const VkQueueFlags desiredQueueFamilies, 
 					const std::vector<const char*>& desiredExtensions);
-		~GPUContext();
+		~GPUContext() = default;
 		GPUContext(const GPUContext& other) = delete;
 		GPUContext& operator=(const GPUContext& other) = delete;
 		GPUContext(GPUContext&& other) = delete;
 		GPUContext& operator=(GPUContext&& other) = delete;
 
-		static const VkDevice LogicalDevice() noexcept { return logicalDevice; }
-		static const VkPhysicalDevice PhysicalDevice() noexcept { return physicalDevice; }
-		static const QueueFamilyIndices& QueueFamilyIndices() noexcept { return queueFamilyIndices; }
+		VkDevice LogicalDevice() const noexcept { return logicalDevice; }
+		VkPhysicalDevice PhysicalDevice() const noexcept { return physicalDevice; }
+		const QueueFamilyIndices& QueueFamilyIndices() const noexcept { return queueFamilyIndices; }
 	
 	private:
 
-		static VkDevice logicalDevice;
-		static VkPhysicalDevice physicalDevice;
+		VkDevice logicalDevice;
+		VkPhysicalDevice physicalDevice;
 
-		static struct QueueFamilyIndices
+		struct QueueFamilyIndices
 		{
 			uint32_t graphics{ std::numeric_limits<uint32_t>::max() };
 			uint32_t compute{ std::numeric_limits<uint32_t>::max() };

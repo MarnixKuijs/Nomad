@@ -8,7 +8,8 @@ namespace cof
 	{
 	public:
 		Swapchain
-		(	
+		(
+			const cof::GPUContext& gpuContext,
 			const VkSurfaceKHR surface, 
 			const VkExtent2D desiredImageSize,
 			const VkPresentModeKHR desiredPresentMode,	
@@ -17,7 +18,7 @@ namespace cof
 			const VkSurfaceFormatKHR desiredSurfaceFormat
 		);
 
-		~Swapchain();
+		~Swapchain() = default;
 
 		Swapchain(const Swapchain& other) = delete;
 		Swapchain& operator=(const Swapchain& other) = delete;
@@ -28,9 +29,10 @@ namespace cof
 
 		const uint32_t AcquireNextImage
 		(
-			uint64_t timeout,
-			VkSemaphore semaphore,
-			VkFence fence
+			const VkDevice device,
+			const uint64_t timeout,
+			const VkSemaphore semaphore,
+			const VkFence fence
 		);
 
 	private:

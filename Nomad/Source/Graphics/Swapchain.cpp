@@ -8,6 +8,7 @@
 namespace cof
 {
 	Swapchain::Swapchain(
+		const cof::GPUContext& gpuContext,
 		const VkSurfaceKHR surface,
 		const VkExtent2D desiredImageSize,
 		const VkPresentModeKHR desiredPresentMode,
@@ -18,7 +19,7 @@ namespace cof
 		VkResult errorCode{ VK_RESULT_MAX_ENUM };
 		uint32_t presentModesCount{0};
 
-		VkPhysicalDevice physicalDevice = cof::GPUContext::PhysicalDevice();
+		VkPhysicalDevice physicalDevice = gpuContext.PhysicalDevice();
 		errorCode = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, nullptr);
 		assert(errorCode == VK_SUCCESS || presentModesCount != 0 );
 
@@ -120,20 +121,15 @@ namespace cof
 			VK_NULL_HANDLE //TODO recreation of swapchain                                
 		};
 
-		errorCode = vkCreateSwapchainKHR(cof::GPUContext::LogicalDevice(), &swapchainCreateInfo, nullptr, &handle);
+		errorCode = vkCreateSwapchainKHR(gpuContext.LogicalDevice(), &swapchainCreateInfo, nullptr, &handle);
 		assert(errorCode == VK_SUCCESS);
 
 	}
 
-	Swapchain::~Swapchain()
-	{
-		vkDestroySwapchainKHR(cof::GPUContext::LogicalDevice(), handle, nullptr);
-	}
-
-	const uint32_t Swapchain::AcquireNextImage(uint64_t timeout, VkSemaphore semaphore, VkFence fence)
+	const uint32_t Swapchain::AcquireNextImage(const VkDevice device, const uint64_t timeout, const VkSemaphore semaphore, const VkFence fence)
 	{
 		uint32_t imageIndex;
-		VkResult spawchainStatus = vkAcquireNextImageKHR(cof::GPUContext::LogicalDevice(), handle, timeout, semaphore, fence, &imageIndex);
+		VkResult spawchainStatus = vkAcquireNextImageKHR(device, handle, timeout, semaphore, fence, &imageIndex);
 		switch (spawchainStatus) //TODO handle different cases
 		{
 		case VK_SUCCESS:

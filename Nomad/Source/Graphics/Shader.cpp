@@ -7,7 +7,7 @@
 #include <assert.h>
 namespace cof
 {
-	Shader::Shader(const std::vector<std::byte>& buffer)
+	Shader::Shader(VkDevice device, const std::vector<std::byte>& buffer)
 	{
 		VkShaderModuleCreateInfo createInfo
 		{
@@ -16,17 +16,11 @@ namespace cof
 			.pCode = reinterpret_cast<const uint32_t*>(buffer.data()) //TODO get rid of UB
 		};
 
-		VkResult errorCode = vkCreateShaderModule(cof::GPUContext::LogicalDevice(), &createInfo, nullptr, &shaderModule);
+		VkResult errorCode = vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule);
 		assert(errorCode == VK_SUCCESS);
 	}
 
-	Shader::~Shader()
-	{
-		vkDestroyShaderModule(cof::GPUContext::LogicalDevice(), shaderModule, nullptr);
-		shaderModule = VK_NULL_HANDLE;
-	}
-
-	Shader LoadShader(std::filesystem::path&& shaderPath)
+	Shader LoadShader(std::filesystem::path&& shaderPath, VkDevice device)
 	{
 		std::ifstream shaderFile{ shaderPath, std::ios::ate | std::ios::binary };
 
@@ -37,10 +31,10 @@ namespace cof
 
 		shaderFile.seekg(0);
 		shaderFile.read(reinterpret_cast<char*>(buffer.data()), fileSize); //Maybe UB?
-		return Shader{ buffer };
+		return Shader{ device, buffer };
 	}
 
-	Shader cof::LoadShader( const std::filesystem::path& shaderPath)
+	Shader cof::LoadShader( const std::filesystem::path& shaderPath, VkDevice device)
 	{
 		std::ifstream shaderFile{ shaderPath, std::ios::ate | std::ios::binary };
 
@@ -51,7 +45,7 @@ namespace cof
 
 		shaderFile.seekg(0);
 		shaderFile.read(reinterpret_cast<char*>(buffer.data()), fileSize); //Maybe UB?
-		return Shader{ buffer };
+		return Shader{ device, buffer };
 	}
 
 }
