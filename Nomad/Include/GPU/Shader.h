@@ -11,8 +11,10 @@ namespace cof
 	{
 		Shader(const VkDevice device, const std::vector<std::byte>& buffer);
 		~Shader();
+
+		VkShaderModule Handle() const noexcept { return handle; }
 	private:
-		VkShaderModule shaderModule;
+		VkShaderModule handle;
 		const VkDevice parent;
 	};
 

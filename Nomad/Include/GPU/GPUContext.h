@@ -1,11 +1,9 @@
 #pragma once
-#include "GPU/PhysicalDevice.h"
-
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
 #include <vector>
-
+#include <assert.h>
 namespace cof
 {
 
@@ -26,9 +24,12 @@ namespace cof
 		GPUContext(GPUContext&& other) = delete;
 		GPUContext& operator=(GPUContext&& other) = delete;
 
-		const VkDevice LogicalDevice() const noexcept { return logicalDevice; }
-		const VkPhysicalDevice PhysicalDevice() const noexcept { return physicalDevice; }
+		VkDevice LogicalDevice() const noexcept { return logicalDevice; }
+		VkPhysicalDevice PhysicalDevice() const noexcept { return physicalDevice; }
 		const QueueFamilyIndices& QueueFamilyIndices() const noexcept { return queueFamilyIndices; }
+
+		template<VkQueueFlagBits QueueType>
+		uint32_t QueueFamilyIndex() const noexcept;
 	
 	private:
 
@@ -42,4 +43,26 @@ namespace cof
 			uint32_t transfer{ std::numeric_limits<uint32_t>::max() };
 		} queueFamilyIndices;
 	};
+
+	template<VkQueueFlagBits QueueType>
+	inline uint32_t GPUContext::QueueFamilyIndex() const noexcept
+	{
+		if constexpr (QueueType == VK_QUEUE_GRAPHICS_BIT)
+		{
+			return queueFamilyIndices.graphics;
+		}
+		else if constexpr (QueueType == VK_QUEUE_COMPUTE_BIT)
+		{
+			return queueFamilyIndices.compute;
+		}
+		else if constexpr (QueueType == VK_QUEUE_TRANSFER_BIT)
+		{
+			return queueFamilyIndices.transfer;
+		}
+		else
+		{
+			assert(false);
+			return std::numeric_limits<uint32_t>::max();
+		}
+	}
 }

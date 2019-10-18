@@ -3,8 +3,10 @@ project(Nomad VERSION 1.0.0)
 
 set(SRC_FILES
     ./Source/GPU/GPUContext.cpp
+	./Source/GPU/Shader.cpp
+	./Source/GPU/Semaphore.cpp
 	./Source/Graphics/Swapchain.cpp
-	./Source/Graphics/Shader.cpp
+	./Source/Graphics/RenderPass.cpp
 )
 
 add_library(Nomad ${SRC_FILES})

@@ -1,4 +1,4 @@
-#include "Graphics/Shader.h"
+#include "GPU/Shader.h"
 
 #include <vulkan/vulkan_core.h>
 
@@ -17,14 +17,14 @@ namespace cof
 			.pCode = reinterpret_cast<const uint32_t*>(buffer.data()) //TODO get rid of UB
 		};
 
-		VkResult errorCode = vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule);
+		VkResult errorCode = vkCreateShaderModule(device, &createInfo, nullptr, &handle);
 		assert(errorCode == VK_SUCCESS);
 	}
 
 	Shader::~Shader()
 	{
-		vkDestroyShaderModule(parent, shaderModule, nullptr);
-		shaderModule = VK_NULL_HANDLE;
+		vkDestroyShaderModule(parent, handle, nullptr);
+		handle = VK_NULL_HANDLE;
 	}
 
 	Shader LoadShader(std::filesystem::path&& shaderPath, const VkDevice device)

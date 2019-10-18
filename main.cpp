@@ -1,7 +1,9 @@
 #include "GPU/GPUContext.h"
+#include "GPU/CommandPool.h"
+#include "GPU/Shader.h"
+#include "GPU/Semaphore.h"
 #include "Graphics/Swapchain.h"
-#include "Graphics/CommandPool.h"
-#include "Graphics/Shader.h"
+#include "Graphics/RenderPass.h"
 #include "Utils/VulkanUtils.h"
 #define WIN32_LEAN_AND_MEAN
 #include <vulkan/vulkan.h>
@@ -102,6 +104,8 @@ int main()
 
 	const auto& queueFamilyIndices = gpuContext.QueueFamilyIndices();
 	const auto physicalDevice = gpuContext.PhysicalDevice();
+	const auto logicalDevice = gpuContext.LogicalDevice();
+
 	uint32_t presentQueueFamilyIndex{ std::numeric_limits<uint32_t>::max() };
 	VkBool32 presentationSupported = VK_FALSE;
 
@@ -137,26 +141,324 @@ int main()
 		{ VK_FORMAT_R8G8B8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR }
 	};
 
-	VkSemaphoreCreateInfo semaphoreCreateInfo
+	VkAttachmentDescription colorAttachment
 	{
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
+		.format = swapchain.ImageMetaData().format,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+
 	};
-	
-	VkSemaphore imageAvailableSemaphore, renderingFinishedSemaphore;
-	errorCode = vkCreateSemaphore(gpuContext.LogicalDevice(), &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore);
+
+	VkAttachmentReference colorAttachmentRef
+	{
+		.attachment = 0,
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	};
+
+	VkSubpassDescription subpass
+	{
+		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+		.colorAttachmentCount = 1,
+		.pColorAttachments = &colorAttachmentRef,
+	};
+
+	VkSubpassDependency dependency
+	{
+		.srcSubpass = VK_SUBPASS_EXTERNAL,
+		.dstSubpass = 0,
+		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+	};
+
+	cof::RenderPass forwardGeometryPass{ logicalDevice, {colorAttachment}, {subpass}, {dependency} };
+
+
+
+	cof::Shader triangleVertShader = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.vert.spv)", logicalDevice);
+	cof::Shader triangleFragShader = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.frag.spv)", logicalDevice);
+
+	VkPipelineShaderStageCreateInfo shaderStages[] = 
+	{	
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_VERTEX_BIT,
+			.module = triangleVertShader.Handle(),
+			.pName = "main"
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = triangleFragShader.Handle(),
+			.pName = "main"
+		}
+	};
+
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.vertexBindingDescriptionCount = 0,
+		.pVertexBindingDescriptions = nullptr,
+		.vertexAttributeDescriptionCount = 0,
+		.pVertexAttributeDescriptions = nullptr
+	};
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		.primitiveRestartEnable = VK_FALSE,
+	};
+
+	VkViewport viewport
+	{
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = static_cast<float>(swapchain.ImageMetaData().extent.width),
+		.height = static_cast<float>(swapchain.ImageMetaData().extent.height),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f,
+	};
+
+	VkRect2D scissor
+	{
+		.offset = { 0, 0 },
+		.extent = swapchain.ImageMetaData().extent
+	};
+
+	VkPipelineViewportStateCreateInfo viewportState
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.pViewports = &viewport,
+		.scissorCount = 1,
+		.pScissors = &scissor
+	};
+
+	VkPipelineRasterizationStateCreateInfo rasterizer
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = VK_POLYGON_MODE_FILL,
+		.cullMode = VK_CULL_MODE_BACK_BIT,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.depthBiasEnable = VK_FALSE,
+		.lineWidth = 1.0f,
+	};
+
+	VkPipelineMultisampleStateCreateInfo multisampling
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+	};
+
+	VkPipelineColorBlendAttachmentState colorBlendAttachment
+	{
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+	};
+
+	VkPipelineColorBlendStateCreateInfo colorBlending
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.logicOpEnable = VK_FALSE,
+		.attachmentCount = 1,
+		.pAttachments = &colorBlendAttachment
+	};
+
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
+	};
+
+	VkPipelineLayout pipelineLayout;
+	errorCode = vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout);
+
+	VkGraphicsPipelineCreateInfo pipelineInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = 2,
+		.pStages = shaderStages,
+		.pVertexInputState = &vertexInputInfo,
+		.pInputAssemblyState = &inputAssembly,
+		.pViewportState = &viewportState,
+		.pRasterizationState = &rasterizer,
+		.pMultisampleState = &multisampling,
+		.pDepthStencilState = nullptr,
+		.pColorBlendState = &colorBlending,
+		.pDynamicState = nullptr,
+		.layout = pipelineLayout,
+		.renderPass = forwardGeometryPass.Handle(),
+		.subpass = 0,
+	};
+
+	VkPipeline graphicsPipeline;
+	errorCode = vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline);
 	assert(errorCode == VK_SUCCESS);
-	errorCode = vkCreateSemaphore(gpuContext.LogicalDevice(), &semaphoreCreateInfo, nullptr, &renderingFinishedSemaphore);
+
+	cof::CommandPool<VK_QUEUE_GRAPHICS_BIT> graphicsCommandPool{ gpuContext, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT };
+
+	VkCommandBufferAllocateInfo allocInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.commandPool = graphicsCommandPool.Handle(),
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = 1u
+	};
+
+	VkCommandBuffer graphicsCommandBuffer;
+
+	errorCode = vkAllocateCommandBuffers(logicalDevice, &allocInfo, &graphicsCommandBuffer);
 	assert(errorCode == VK_SUCCESS);
 
-	cof::Shader triangleVertSahder = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.vert.spv)", gpuContext.LogicalDevice());
-	cof::Shader triangleFragShader = cof::LoadShader(R"(D:\GameDev\Graphics\Vulkan\Nomad\Assets\Trangle.frag.spv)", gpuContext.LogicalDevice());
+	cof::Semaphore imageAvailableSemaphore{ logicalDevice };
+	cof::Semaphore renderingFinishedSemaphore{ logicalDevice };
 
-	thread_local cof::CommandPool<VK_QUEUE_GRAPHICS_BIT> graphicsCommandPool{ gpuContext };
+	VkFence renderingFinishedFence;
 
-	[[maybe_unused]] uint32_t imageIndex = swapchain.AcquireNextImage(std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE);
+	VkFenceCreateInfo fenceInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+	};
 
-	vkDestroySemaphore(gpuContext.LogicalDevice(), imageAvailableSemaphore, nullptr);
-	vkDestroySemaphore(gpuContext.LogicalDevice(), renderingFinishedSemaphore, nullptr);
+	errorCode = vkCreateFence(logicalDevice, &fenceInfo, nullptr, &renderingFinishedFence);
+	assert(errorCode == VK_SUCCESS);
+
+	while (!glfwWindowShouldClose(window)) 
+	{
+		glfwPollEvents();
+		[[maybe_unused]] uint32_t imageIndex = swapchain.AcquireNextImage(std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore.Handle(), VK_NULL_HANDLE);
+
+		VkCommandBufferBeginInfo beginInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		};
+
+		vkBeginCommandBuffer(graphicsCommandBuffer, &beginInfo);
+
+		VkImageViewCreateInfo createInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = swapchain.Image(imageIndex),
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = swapchain.ImageMetaData().format,
+			.components = 
+			{
+				.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g = VK_COMPONENT_SWIZZLE_IDENTITY, 
+				.b = VK_COMPONENT_SWIZZLE_IDENTITY, 
+				.a = VK_COMPONENT_SWIZZLE_IDENTITY
+			},
+			.subresourceRange = 
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+
+		VkImageView imageView;
+		vkCreateImageView(logicalDevice, &createInfo, nullptr, &imageView);
+
+		VkFramebufferCreateInfo framebufferInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = forwardGeometryPass.Handle(),
+			.attachmentCount = 1,
+			.pAttachments = &imageView,
+			.width = swapchain.ImageMetaData().extent.width,
+			.height = swapchain.ImageMetaData().extent.height,
+			.layers = 1,
+		};
+
+		VkFramebuffer frameBuffer;
+		vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &frameBuffer);
+
+		static VkClearValue clearColor{ 0.0f, 0.0f, 0.0f, 1.0f };
+
+		VkRenderPassBeginInfo renderPassInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			.renderPass = forwardGeometryPass.Handle(),
+			.framebuffer = frameBuffer,
+			.renderArea =
+			{
+				.offset = {0, 0},
+				.extent = swapchain.ImageMetaData().extent
+			},
+			.clearValueCount = 1,
+			.pClearValues = &clearColor
+		};
+
+		vkCmdBeginRenderPass(graphicsCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(graphicsCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+		vkCmdDraw(graphicsCommandBuffer, 3, 1, 0, 0);
+
+		vkCmdEndRenderPass(graphicsCommandBuffer);
+		errorCode = vkEndCommandBuffer(graphicsCommandBuffer);
+		assert(errorCode == VK_SUCCESS);
+
+		VkSemaphore waitSemaphores[] = { imageAvailableSemaphore.Handle() };
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		VkSemaphore signalSemaphores[] = { renderingFinishedSemaphore.Handle() };
+
+		VkSubmitInfo submitInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = waitSemaphores,
+			.pWaitDstStageMask = waitStages,
+			.commandBufferCount = 1,
+			.pCommandBuffers = &graphicsCommandBuffer,
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = signalSemaphores
+		};
+		
+
+
+		VkQueue graphicsQueue;
+		vkGetDeviceQueue(logicalDevice, gpuContext.QueueFamilyIndex<VK_QUEUE_GRAPHICS_BIT>(), 0, &graphicsQueue);
+		errorCode = vkQueueSubmit(graphicsQueue, 1, &submitInfo, renderingFinishedFence);
+
+		vkWaitForFences(logicalDevice, 1, &renderingFinishedFence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+		vkResetFences(logicalDevice, 1, &renderingFinishedFence);
+
+		VkSwapchainKHR swapChains[] = { swapchain.Handle() };
+
+		VkPresentInfoKHR presentInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = signalSemaphores,
+			.swapchainCount = 1,
+			.pSwapchains = swapChains,
+			.pImageIndices = &imageIndex
+		};
+
+		VkQueue presentQueue;
+		vkGetDeviceQueue(logicalDevice, presentQueueFamilyIndex, 0, &presentQueue);
+
+		vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		vkDestroyFramebuffer(logicalDevice, frameBuffer, nullptr);
+		vkDestroyImageView(logicalDevice, imageView, nullptr);
+	}
+
+	vkDeviceWaitIdle(logicalDevice);
+
+	vkDestroyFence(logicalDevice, renderingFinishedFence, nullptr);
+	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
 
 	std::atexit([] 
 		{

@@ -123,6 +123,12 @@ namespace cof
 		errorCode = vkCreateSwapchainKHR(gpuContext.LogicalDevice(), &swapchainCreateInfo, nullptr, &handle);
 		assert(errorCode == VK_SUCCESS);
 
+		imageMetaData.extent = imageExtent;
+		imageMetaData.format = imageFormat;
+
+		vkGetSwapchainImagesKHR(gpuContext.LogicalDevice(), handle, &imageCount, nullptr);
+		images.resize(imageCount);
+		vkGetSwapchainImagesKHR(gpuContext.LogicalDevice(), handle, &imageCount, images.data());
 	}
 
 	Swapchain::~Swapchain()
