@@ -5,6 +5,7 @@ set(SRC_FILES
     ./Source/GPU/GPUContext.cpp
 	./Source/GPU/Shader.cpp
 	./Source/GPU/Semaphore.cpp
+	./Source/GPU/vk_mem_alloc.cpp
 	./Source/Graphics/Swapchain.cpp
 	./Source/Graphics/RenderPass.cpp
 )
@@ -13,7 +14,7 @@ add_library(Nomad ${SRC_FILES})
 
 target_include_directories(Nomad
     PUBLIC ./Include/
-	PUBLIC ../External/glfw/include/
+	PUBLIC ../External/glm/
 	PUBLIC $ENV{VULKAN_SDK}/Include/
 )
 
