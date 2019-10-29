@@ -7,6 +7,8 @@
 #include "Utils/VulkanUtils.h"
 #include "Graphics/Vertex.h"
 
+#include "GPU/vk_mem_alloc.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <vulkan/vulkan.h>
 #undef WIN32_LEAN_AND_MEAN
@@ -148,6 +150,15 @@ int main()
 	const auto physicalDevice = gpuContext.PhysicalDevice();
 	const auto logicalDevice = gpuContext.LogicalDevice();
 
+	VmaAllocatorCreateInfo allocatorInfo
+	{
+		.physicalDevice = physicalDevice,
+		.device = logicalDevice
+	};
+
+	VmaAllocator gpuMemallocator;
+	vmaCreateAllocator(&allocatorInfo, &gpuMemallocator);
+
 	std::vector<cof::UnlitColoredVertex> vertices
 	{
 		{ glm::vec3{0.0f, -0.5f, 0.0f}, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f }},
@@ -155,25 +166,43 @@ int main()
 		{ glm::vec3{-0.5f, 0.5f, 0.0f}, glm::vec4{0.0f, 0.0f, 1.0f, 1.0f} }
 	};
 
-	VkBufferCreateInfo bufferInfo
+	VkDeviceSize bufferSize = sizeof(decltype(vertices)::value_type) * vertices.size();
+
+	VkBufferCreateInfo vertexbufferInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = sizeof(decltype(vertices)::value_type) * vertices.size(),
-		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		.size = bufferSize,
+		.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
 
-	VkDeviceSize bufferSize = sizeof(decltype(vertices)::value_type) * vertices.size();
+	VkBufferCreateInfo stagingbufferInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.size = bufferSize,
+		.usage =  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
+	};
+
+	VmaAllocationCreateInfo vertexBufferAllocInfo
+	{
+		.usage = VMA_MEMORY_USAGE_GPU_ONLY
+	};
+	
+	VmaAllocationCreateInfo stagingBufferAllocInfo
+	{
+		.usage = VMA_MEMORY_USAGE_CPU_ONLY
+	};
 
 	VkBuffer vertexBuffer, stagingBuffer;
-	VkDeviceMemory vertexBufferMemory, stagingBufferMemory;
-	createBuffer(gpuContext, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-	createBuffer(gpuContext, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+	VmaAllocation vertexAllocation, stagingAllocation;
+	vmaCreateBuffer(gpuMemallocator, &vertexbufferInfo, &vertexBufferAllocInfo, &vertexBuffer, &vertexAllocation, nullptr);
+	vmaCreateBuffer(gpuMemallocator, &stagingbufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, nullptr);
 
 	void* vertexData;
-	vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferInfo.size, 0, &vertexData);
-	memcpy(vertexData, vertices.data(), static_cast<size_t>(bufferInfo.size));
-	vkUnmapMemory(logicalDevice, stagingBufferMemory);
+	vmaMapMemory(gpuMemallocator, stagingAllocation, &vertexData);
+	memcpy(vertexData, vertices.data(), static_cast<size_t>(bufferSize));
+	vmaUnmapMemory(gpuMemallocator, stagingAllocation);
 
 	cof::CommandPool<VK_QUEUE_TRANSFER_BIT> transferCommandPool{ gpuContext, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT };
 
@@ -219,8 +248,8 @@ int main()
 	vkQueueWaitIdle(transferQueue);
 
 	vkFreeCommandBuffers(logicalDevice, transferCommandPool.Handle(), 1, &transferCommandBuffer);
-	vkDestroyBuffer(logicalDevice , stagingBuffer, nullptr);
-	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+	vmaDestroyBuffer(gpuMemallocator, stagingBuffer, stagingAllocation);
+	
 
 	uint32_t presentQueueFamilyIndex{ std::numeric_limits<uint32_t>::max() };
 	VkBool32 presentationSupported{ VK_FALSE };
@@ -604,8 +633,8 @@ int main()
 
 	vkDeviceWaitIdle(logicalDevice);
 
-	vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
-	vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
+	vmaDestroyBuffer(gpuMemallocator, vertexBuffer, vertexAllocation);
+	vmaDestroyAllocator(gpuMemallocator);
 
 	vkDestroyFence(logicalDevice, renderingFinishedFence, nullptr);
 	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
